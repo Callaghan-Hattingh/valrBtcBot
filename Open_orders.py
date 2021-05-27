@@ -11,10 +11,37 @@ def open_orders():
     :return:
     """
     i = OpenOrders(api_key=API_KEY, api_secret=API_SECRET)
-    i.get_all_open_orders()
+    return i.get_all_open_orders()
 
 
-class OpenOrders:
+def open_buy_orders(all_open_orders):  # todo add sqlite table for buy orders
+    """
+    :param all_open_orders:
+    :return:
+    """
+    placed_buys = []
+    for order in all_open_orders:
+        if order["currencyPair"] == "BTCZAR":
+            if order["side"] == "buy":
+                try:
+                    placed_buys.append(order["customerOrderId"])
+                except KeyError:
+                    pass
+                # print(order)
+    logging.info(f"{datetime.utcnow()}, 4")  # list of customerOrderId on the exchange
+    # print(f"{placed_buys}\n")
+    return placed_buys
+
+
+def buy_orders_to_place(buys_to_place, buys_placed):
+    return list(set(buys_to_place) - set(buys_placed))
+
+
+def buy_orders_to_cancel(buys_to_place, buys_placed):
+    return list(set(buys_placed) - set(buys_to_place))
+
+
+class OpenOrders:  # todo rework function turn sqlite into a separate function
     """
     GET - ALL OPEN ORDERS
     process the open orders
@@ -27,7 +54,7 @@ class OpenOrders:
     def get_all_open_orders(self):
         all_orders = self.client.get_all_open_orders()
         logging.info(f"{datetime.utcnow()}, 3")  # The get orders API call
-        conn = create_connection("TradeDataBTCZARbot.db")
+        conn = create_connection("TradeDataBTCZAR.db")
         clear_table(conn, "all_open_orders")  # clear table for all_open_orders
         for order in all_orders:
             if order["currencyPair"] == "BTCZAR":
@@ -35,30 +62,17 @@ class OpenOrders:
                     add_all_open_orders(conn, order)
                 except KeyError:
                     logging.info(f"{datetime.utcnow()}, OpenOrders - KeyError - Trade without customerOrderId")
+                    pass  # Want to skip open orders without customerOrderId
                     # The get orders API call
-                    try:  # KeyError if there is no customer order ID
-                        order["customerOrderId"] = order["orderId"]
-                        add_all_open_orders(conn, order)
-                    except Exception as e:
-                        logging.error(f"Exception occurred: {e}", exc_info=True)
-                    else:
-                        pass
+                except Exception as e:
+                    logging.error(f"Exception occurred: {e}", exc_info=True)
+                else:
                     pass
-
-    def get_all_open_buy_orders(self):  # todo add sqlite table for buy orders
-        all_orders = self.client.get_all_open_orders()
-        conn = create_connection("TradeDataBTCZARbot.db")
-        for order in all_orders:
-            if order["side"] == "buy":
-                try:
-                    add_all_open_orders(conn, order)
-                except KeyError:
-                    order["customerOrderId"] = order["orderId"]
-                    add_all_open_orders(conn, order)
+        return all_orders
 
     def get_all_open_sell_orders(self):  # todo add sqlite table for sell orders
         all_orders = self.client.get_all_open_orders()
-        conn = create_connection("TradeDataBTCZARbot.db")
+        conn = create_connection("TradeDataBTCZAR.db")
         for order in all_orders:
             try:
                 add_all_open_orders(conn, order)

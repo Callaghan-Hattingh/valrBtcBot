@@ -24,6 +24,7 @@ def clear_table(conn, table: str):
     """
     cur = conn.cursor()
     cur.execute(f"DELETE FROM {table};")
+    conn.commit()
 
 
 def add_period60sec(conn, data: dict):
@@ -69,12 +70,44 @@ def add_all_open_orders(conn, data: dict):
     conn.commit()
 
 
-def get_all_buys_to_place(conn, low_tic):
+def get_all_buys_to_place(conn, high_price: int, low_price: int):
     """Get a list of all the buy order that need/have been placed
     :param conn: the Connection object
-    :param low_tic: the low from the one minute candle
+    :param low_price: the low of the candle - x amount
+    :param high_price: the close of the candle
     :return: a list of all the buy orders that should be placed
     """
     cur = conn.cursor()
-    cur.execute(f"SELECT * FROM trades_bot WHERE {low_tic} < buyPrice < {low_tic * 1.05}")
+    cur.execute(f"SELECT customerOrderId FROM trades_bot WHERE buyPrice BETWEEN {low_price} AND {high_price}")
+    items = cur.fetchall()
+    buys_list = []
+
+    for item in items:
+        for value in item:
+            buys_list.append(value)
+
+    return buys_list
+
+
+def get_buy_place_info(conn, customer_order_id: str):
+    """Get a list of all the buy order that need/have been placed
+    :param conn: the Connection object
+    :param customer_order_id: the low of the candle
+    :return: a list of all the buy orders that should be placed
+    """
+    cur = conn.cursor()
+    cur.execute(f"SELECT * FROM trades_bot WHERE customerOrderId = '{customer_order_id}';")
     return cur.fetchall()
+
+
+def update_process_position(conn, customer_order_id: str, process_position: int = 0):
+    """UPDATE the process_position based on the customer_order_id
+    :param conn: the Connection object
+    :param customer_order_id: the low of the candle
+    :param process_position:
+    :return:
+    """
+    cur = conn.cursor()
+    cur.execute(f"""UPDATE trades_bot SET processPosition = {process_position} 
+                    WHERE customerOrderId = '{customer_order_id}';""")
+    conn.commit()

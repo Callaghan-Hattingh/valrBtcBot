@@ -14,14 +14,14 @@ class TradeData:
         """
         if self.data['data']['bucketPeriodInSeconds'] == 60:
             self.data = self.data['data']
-            conn = create_connection("TradeDataBTCZARbot.db")
+            conn = create_connection("TradeDataBTCZAR.db")
             add_period60sec(conn, self.data)
             logging.info(f"{datetime.utcnow()}, 2")  # The websockets one min bucket.
             self.start_time = self.data['startTime']
-            self.close_tic = self.data['close']
+            self.close_tic = int(self.data['close']) - 300000  # todo fix
             self.open_tic = self.data['open']
             self.high_tic = self.data['high']
-            self.low_tic = int(self.data['low']) - 200000  # todo fix
+            self.low_tic = int(self.data['low']) - 300000  # todo fix
             self.quoteVolume_tic = ['quoteVolume']
             self.volume_tic = self.data['volume']
             return True

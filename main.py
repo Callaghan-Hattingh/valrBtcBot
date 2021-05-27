@@ -2,14 +2,13 @@ import asyncio
 import logging
 
 
-from datetime import datetime
 from valr_python import WebSocketClient
 from valr_python.enum import TradeEvent
 from valr_python.enum import WebSocketType
 
 from Keys import *
-from Open_orders import *
-from Trade_data import *
+from bot_function import bot_market
+
 
 logging.basicConfig(filename='bot.log',
                     filemode='w',
@@ -20,13 +19,7 @@ CURRENCY_PAIR = "BTCZAR"
 
 
 def pretty_hook(data: dict):
-    utc_now = datetime.utcnow()     # start time
-    logging.info(f"{utc_now}, 1")   # log start time
-    trade_data = TradeData(data)
-    if trade_data.period60sec():
-        open_orders()
-        print(trade_data.low_tic)
-    logging.info(f"{datetime.utcnow() - utc_now}, 4")  # end time
+    bot_market(data)
 
 
 c = WebSocketClient(api_key=API_KEY, api_secret=API_SECRET, currency_pairs=[CURRENCY_PAIR],
