@@ -10,7 +10,7 @@ from Keys import *
 from bot_function import bot_market
 
 
-logging.basicConfig(filename='bot.log',
+logging.basicConfig(filename='tmp/logging_btczar_bot.out',
                     filemode='w',
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)

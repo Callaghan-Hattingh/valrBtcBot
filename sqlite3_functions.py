@@ -70,26 +70,42 @@ def add_all_open_orders(conn, data: dict):
     conn.commit()
 
 
+def get_open_orders_info(conn, buy_price: int):
+    """Get a list of all the buy order that need/have been placed
+        :param conn: the Connection object
+        :param buy_price: the low of the candle
+        :return: a list of all the buy orders that should be placed
+        """
+    cur = conn.cursor()
+    cur.execute(f"SELECT * FROM all_open_orders WHERE price = '{buy_price}';")
+    return cur.fetchall()
+
+
 def get_all_buys_to_place(conn, high_price: int, low_price: int):
     """Get a list of all the buy order that need/have been placed
     :param conn: the Connection object
     :param low_price: the low of the candle - x amount
     :param high_price: the close of the candle
+    :return: a list of all the buy orders that should be placed (buyPrice)
+    """
+    cur = conn.cursor()
+    cur.execute(f"SELECT buyPrice FROM trades_bot WHERE buyPrice BETWEEN {low_price} AND {high_price}")
+    items = cur.fetchall()
+    return [i[0] for i in items]
+
+
+def get_info_buy_price(conn, buy_price: int):
+    """Get a list of all the buy order that need/have been placed
+    :param conn: the Connection object
+    :param buy_price: the low of the candle
     :return: a list of all the buy orders that should be placed
     """
     cur = conn.cursor()
-    cur.execute(f"SELECT customerOrderId FROM trades_bot WHERE buyPrice BETWEEN {low_price} AND {high_price}")
-    items = cur.fetchall()
-    buys_list = []
-
-    for item in items:
-        for value in item:
-            buys_list.append(value)
-
-    return buys_list
+    cur.execute(f"SELECT * FROM trades_bot WHERE buyPrice = {buy_price};")
+    return cur.fetchall()
 
 
-def get_buy_place_info(conn, customer_order_id: str):
+def get_info_customer_order_id(conn, customer_order_id: str):
     """Get a list of all the buy order that need/have been placed
     :param conn: the Connection object
     :param customer_order_id: the low of the candle
@@ -105,9 +121,42 @@ def update_process_position(conn, customer_order_id: str, process_position: int 
     :param conn: the Connection object
     :param customer_order_id: the low of the candle
     :param process_position:
+                    0 - Wait to place buy
+                    1 - Placed buy
+                    2 - Part buy
+                    3 - Bought
+                    4 - To place sell
+                    5 - Placed sell
+                    6 - Part sell
+                    7 - Sold
+                    8 - Profit placement
+                    9 - Reset
     :return:
     """
     cur = conn.cursor()
     cur.execute(f"""UPDATE trades_bot SET processPosition = {process_position} 
                     WHERE customerOrderId = '{customer_order_id}';""")
+    conn.commit()
+
+
+def update_process_position_buy_price(conn, buy_price: int, process_position: int = 0):
+    """UPDATE the process_position based on the customer_order_id
+    :param conn: the Connection object
+    :param buy_price: the low of the candle
+    :param process_position:
+                    0 - Wait to place buy
+                    1 - Placed buy
+                    2 - Part buy
+                    3 - Bought
+                    4 - To place sell
+                    5 - Placed sell
+                    6 - Part sell
+                    7 - Sold
+                    8 - Profit placement
+                    9 - Reset
+    :return:
+    """
+    cur = conn.cursor()
+    cur.execute(f"""UPDATE trades_bot SET processPosition = {process_position} 
+                    WHERE buyPrice = '{buy_price}';""")
     conn.commit()
