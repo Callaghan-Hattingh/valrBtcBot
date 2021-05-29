@@ -1,7 +1,9 @@
 import logging
 from datetime import datetime
 
-from Open_orders import open_orders, open_buy_orders, buy_orders_to_place, buy_orders_to_cancel
+from Open_orders import open_buy_orders, buy_orders_to_place, buy_orders_to_cancel, \
+    open_sell_orders, all_open_orders, add_btc_orders
+
 from Trade_data import TradeData
 from sqlite3_functions import *
 from Post_orders import delete_order, post_limit_order
@@ -12,21 +14,29 @@ def bot_market(data: dict):
     :param data: the candles from the VALR websockets.
     :return:
     """
-    utc_now = datetime.utcnow()     # start time
-    logging.info(f"{utc_now}, 1")   # log start time
+    utc_now = datetime.utcnow()  # start time
+    logging.info(f"{utc_now}, 1")  # log start time
     trade_data = TradeData(data)
     if trade_data.period60sec():
         conn = create_connection("TradeDataBTCZAR.db")
-        all_orders = open_orders()
+
+        all_orders = all_open_orders()
+        print(all_orders)
+        add_btc_orders(conn, all_orders)
+
+        if check_bought(conn, all_orders=all_orders):
+            print("Buy has taken place.")
+
+        if check_sold(conn, all_orders=all_orders):
+            print("Sell has taken place.")
+
         buys_placed = open_buy_orders(all_orders)
-        buys_to_place = get_all_buys_to_place(conn, trade_data.close_tic, trade_data.low_tic*0.95)
-        # print(buys_placed)
-        # print(buys_to_place)
+        buys_to_place = get_all_buys_to_place(conn, trade_data.close_tic, trade_data.low_tic * 0.95)
+
         buy = buy_orders_to_place(buys_to_place, buys_placed)
         cancel = buy_orders_to_cancel(conn, buys_to_place, buys_placed)
         logging.info(f"Before buy/cancel buy, 5")
-        # print(cancel)
-        # print(buy)
+
         for item in cancel:
             coi = get_info_buy_price(conn, buy_price=item)[0][3]
             delete_order(customer_order_id=coi)
@@ -43,18 +53,46 @@ def bot_market(data: dict):
             else:
                 logging.error(f"process position is incorrect, should be 0 is {y[0][9]}")
             pass
-        print("\n")
+        print('\n')
     logging.info(f"{datetime.utcnow() - utc_now}, 6")  # end time
 
 
-def check_bought():
+def check_bought(conn, all_orders):
+    pp = get_process_position(conn, process_position=1)  # History
+    i = [p[0] for p in pp]
+    buys_placed = open_buy_orders(all_orders)  # present
+    y = list(set(i) - set(buys_placed))
+    print(y)
+    return y
+
+
+def check_sold(conn, all_orders):
+    pp = get_process_position(conn, process_position=5)  # History
+    i = [p[0] for p in pp]
+    buys_placed = open_sell_orders(all_orders)  # present
+    y = list(set(i) - set(buys_placed))
+    print(y)
+    return y
+
+
+def check_part_buy(conn, all_orders):
+    part_buy = []
+    for i in all_orders:  # check for no partially filled orders
+        u = float(get_open_orders_info(conn, i)[0][3])
+        if u > 0:
+            update_process_position_buy_price(conn, buy_price=i, process_position=2)
+            part_buy.append(i)
+    return part_buy
+
+
+def check_part_sell():
     pass
 
 
-def check_buy_place():
-    pass
-
-
-def check_buy_cancel():
-    pass
-
+def type_of_trade(orders, side: str):
+    y = [i for i in orders if i["side"] == side]
+    trades = []
+    for order in orders:
+        if order["side"] == side:
+            trades.append(order)
+    return trades

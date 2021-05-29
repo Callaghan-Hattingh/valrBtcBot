@@ -160,3 +160,10 @@ def update_process_position_buy_price(conn, buy_price: int, process_position: in
     cur.execute(f"""UPDATE trades_bot SET processPosition = {process_position} 
                     WHERE buyPrice = '{buy_price}';""")
     conn.commit()
+
+
+def get_process_position(conn, process_position: int):
+    cur = conn.cursor()
+    cur.execute(f"SELECT * FROM trades_bot WHERE processPosition = {process_position};")
+    return cur.fetchall()
+
