@@ -77,7 +77,9 @@ def get_open_orders_info(conn, buy_price: int):
         :return: a list of all the buy orders that should be placed
         """
     cur = conn.cursor()
-    cur.execute(f"SELECT * FROM all_open_orders WHERE price = '{buy_price}';")
+    print("\n")
+    print(f"SELECT * FROM all_open_orders WHERE price = {buy_price};")
+    cur.execute(f"SELECT * FROM all_open_orders WHERE price = {buy_price};")
     return cur.fetchall()
 
 
@@ -89,9 +91,8 @@ def get_all_buys_to_place(conn, high_price: int, low_price: int):
     :return: a list of all the buy orders that should be placed (buyPrice)
     """
     cur = conn.cursor()
-    cur.execute(f"SELECT buyPrice FROM trades_bot WHERE buyPrice BETWEEN {low_price} AND {high_price}")
-    items = cur.fetchall()
-    return [i[0] for i in items]
+    cur.execute(f"SELECT customerOrderId FROM trades_bot WHERE buyPrice BETWEEN {low_price} AND {high_price}")
+    return [i[0] for i in cur.fetchall()]
 
 
 def get_info_buy_price(conn, buy_price: int):
@@ -108,7 +109,7 @@ def get_info_buy_price(conn, buy_price: int):
 def get_info_customer_order_id(conn, customer_order_id: str):
     """Get a list of all the buy order that need/have been placed
     :param conn: the Connection object
-    :param customer_order_id: the low of the candle
+    :param customer_order_id:
     :return: a list of all the buy orders that should be placed
     """
     cur = conn.cursor()
@@ -119,7 +120,7 @@ def get_info_customer_order_id(conn, customer_order_id: str):
 def update_process_position(conn, customer_order_id: str, process_position: int = 0):
     """UPDATE the process_position based on the customer_order_id
     :param conn: the Connection object
-    :param customer_order_id: the low of the candle
+    :param customer_order_id:
     :param process_position:
                     0 - Wait to place buy
                     1 - Placed buy
@@ -148,12 +149,11 @@ def update_process_position_buy_price(conn, buy_price: int, process_position: in
                     1 - Placed buy
                     2 - Part buy
                     3 - Bought
-                    4 - To place sell
-                    5 - Placed sell
-                    6 - Part sell
-                    7 - Sold
-                    8 - Profit placement
-                    9 - Reset
+                    4 - Place sell
+                    5 - Part sell
+                    6 - Sold
+                    7 - Profit placement
+                    8 - Reset
     :return:
     """
     cur = conn.cursor()
@@ -163,7 +163,48 @@ def update_process_position_buy_price(conn, buy_price: int, process_position: in
 
 
 def get_process_position(conn, process_position: int):
+    """
+    :param conn: the Connection object
+    :param process_position: the trade position (int)
+    :return: all the info for rows with the selected process_position. returns a list of tuples
+    """
     cur = conn.cursor()
     cur.execute(f"SELECT * FROM trades_bot WHERE processPosition = {process_position};")
     return cur.fetchall()
+
+
+def update_sell_price(conn, customer_order_id: str, sell_price: int):
+    """
+    :param conn: The Connection object
+    :param customer_order_id: The id a customer chooses for a order
+    :param sell_price: The sell price of a trade.
+    :return:
+    """
+    cur = conn.cursor()
+    cur.execute(f"""UPDATE trades_bot SET sellPrice = {sell_price} 
+                    WHERE customerOrderId = '{customer_order_id}';""")
+    conn.commit()
+
+
+def update_time_placed(conn, time, customer_order_id: str):
+    """
+    :param conn:
+    :param time:
+    :param customer_order_id:
+    :return:
+    """
+    cur = conn.cursor()
+    cur.execute(f"""UPDATE trades_bot SET timePlaced = {time} 
+                            WHERE customerOrderId = '{customer_order_id}';""")
+    conn.commit()
+
+
+def update_quantity(conn, customer_order_id: str, quantity: int):
+    cur = conn.cursor()
+    cur.execute(f"""UPDATE trades_bot SET quantity = {quantity} 
+                            WHERE customerOrderId = '{customer_order_id}';""")
+    conn.commit()
+
+
+
 

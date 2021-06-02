@@ -1,12 +1,11 @@
 import logging
 from datetime import datetime
 
-from Open_orders import open_buy_orders, buy_orders_to_place, buy_orders_to_cancel, \
-    open_sell_orders, all_open_orders, add_btc_orders
+from Open_orders import open_buy_orders, open_sell_orders, all_open_orders, add_btc_orders
 
 from Trade_data import TradeData
 from sqlite3_functions import *
-from Post_orders import delete_order, post_limit_order
+from Post_orders import delete_order, post_limit_order, order_status
 
 
 def bot_market(data: dict):
@@ -21,78 +20,261 @@ def bot_market(data: dict):
         conn = create_connection("TradeDataBTCZAR.db")
 
         all_orders = all_open_orders()
-        print(all_orders)
         add_btc_orders(conn, all_orders)
 
-        if check_bought(conn, all_orders=all_orders):
-            print("Buy has taken place.")
+        buy_orders = type_of_trade(all_orders, side="buy")
+        sell_orders = type_of_trade(all_orders, side='sell')
 
-        if check_sold(conn, all_orders=all_orders):
-            print("Sell has taken place.")
+        bought = check_bought(conn, buy_orders=buy_orders)
+        sold = check_sold(conn, sell_orders=sell_orders)
 
-        buys_placed = open_buy_orders(all_orders)
-        buys_to_place = get_all_buys_to_place(conn, trade_data.close_tic, trade_data.low_tic * 0.95)
+        part_buy = check_part_buy(conn, buy_orders)
+        part_sell = check_part_sell(conn, sell_orders)
 
-        buy = buy_orders_to_place(buys_to_place, buys_placed)
-        cancel = buy_orders_to_cancel(conn, buys_to_place, buys_placed)
-        logging.info(f"Before buy/cancel buy, 5")
+        buys_placed = open_buy_orders(buy_orders)
+        buys_to_place = get_all_buys_to_place(conn, trade_data.close_tic, trade_data.low_tic * 0.9)
 
-        for item in cancel:
-            coi = get_info_buy_price(conn, buy_price=item)[0][3]
-            delete_order(customer_order_id=coi)
-            update_process_position(conn, customer_order_id=coi, process_position=0)
-        for i in buy:
-            y = get_info_buy_price(conn, buy_price=i)  # gets info from sql table
-            if y[0][9] == 0:
-                q = post_limit_order(side="BUY", quantity=y[0][4], price=y[0][0], customer_order_id=y[0][3])
-                if q["id"]:
-                    update_process_position(conn, customer_order_id=y[0][3], process_position=1)
-                    # if return a id assume order placed correctly and check order on the next candle
-                else:
-                    logging.error(f"No order id received: Message: {q}")
-            else:
-                logging.error(f"process position is incorrect, should be 0 is {y[0][9]}")
-            pass
+        buy = check_buys_to_place(buys_to_place, buys_placed, part_buy)
+        print(buy)
+        cancel = check_buys_to_cancel(buys_placed, buys_to_place, part_buy)
+        print(cancel)
+
+        cancel_placed_buy(conn, cancel)
+        place_buy(conn, buy)
+
+        sell_price = initial_sell_price(trade_data.high_tic)
+        place_sell(conn, bought, sell_price)
+
         print('\n')
     logging.info(f"{datetime.utcnow() - utc_now}, 6")  # end time
 
 
-def check_bought(conn, all_orders):
-    pp = get_process_position(conn, process_position=1)  # History
-    i = [p[0] for p in pp]
-    buys_placed = open_buy_orders(all_orders)  # present
-    y = list(set(i) - set(buys_placed))
-    print(y)
-    return y
+def type_of_trade(orders, side: str):
+    """ returns a list of open orders of the chosen side
+    :param orders: all the open orders
+    :param side: the side of open orders to be returned
+    :return: a list of open orders of the chosen side
+    """
+    return [i for i in orders if i["side"] == side]
 
 
-def check_sold(conn, all_orders):
-    pp = get_process_position(conn, process_position=5)  # History
-    i = [p[0] for p in pp]
-    buys_placed = open_sell_orders(all_orders)  # present
-    y = list(set(i) - set(buys_placed))
-    print(y)
-    return y
+def check_bought(conn, buy_orders):
+    """ Check for bought orders
+    :param conn: the Connection object
+    :param buy_orders:A list of dict with all the buy open orders
+    :return: A list of customerOrderId that contain bought orders
+    """
+    bought = []
+    pp = get_process_position(conn, process_position=1)  # History - info from trades bot sql
+    buys_placed = open_buy_orders(buy_orders)  # present - info from open orders
+    y = list(set([p[3] for p in pp]) - set(buys_placed))
+
+    for i in y:  # todo fix
+        res = order_status(i)
+        if res["orderStatusType"] == "Cancelled":
+            update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=0)
+        elif res["orderStatusType"] == "Placed":  # do nothing
+            logging.error(f'{res["customerOrderId"]} should have been in open_buy_orders func')
+            pass
+        else:
+            logging.error(f'NB check bought: {res["orderStatusType"]}, {res["customerOrderId"]}')
+            print(f'NB check bought: {res["orderStatusType"]}, {res["customerOrderId"]}')
+            bought.append(i)
+    return bought
 
 
-def check_part_buy(conn, all_orders):
+def check_sold(conn, sell_orders):
+    """ Check for sold orders
+    :param conn:the Connection object
+    :param sell_orders:A list of dict with all the sell open orders
+    :return: A list of customerOrderId that contain sold orders
+    """
+    sold = []
+    pp = get_process_position(conn, process_position=5)  # History - info from trades bot sql
+    sells_placed = open_sell_orders(sell_orders)  # present- info from open orders
+    y = list(set([p[3] for p in pp]) - set(sells_placed))
+
+    for i in y:  # todo fix
+        res = order_status(i)
+        if res["orderStatusType"] == "Cancelled":
+            update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=0)
+            logging.error(f'{res["customerOrderId"]} sell order was cancelled')
+        elif res["orderStatusType"] == "Placed":  # do nothing as
+            logging.error(f'{res["customerOrderId"]} should have been in open_sell_orders func')
+            pass
+        else:
+            logging.error(f'NB check sold: {res["orderStatusType"]}, {res["customerOrderId"]}')
+            print(f'NB check sold: {res["orderStatusType"]}')
+            sold.append(i)
+    return sold
+
+
+def check_part_buy(conn, buy_orders):
+    """ Check for part bought orders
+    :param conn: the Connection object
+    :param buy_orders: A list of dict(s) of the buy side orders
+    :return: A list of customerOrderId
+    """
     part_buy = []
-    for i in all_orders:  # check for no partially filled orders
-        u = float(get_open_orders_info(conn, i)[0][3])
+    for i in buy_orders:  # check for no partially filled orders
+        u = float(i["filledPercentage"])
+
         if u > 0:
             update_process_position_buy_price(conn, buy_price=i, process_position=2)
-            part_buy.append(i)
+            part_buy.append(i["customerOrderId"])
     return part_buy
 
 
-def check_part_sell():
+def check_part_sell(conn, sell_orders):
+    """ Check for part sold orders
+    :param conn: the Connection object
+    :param sell_orders:A list of dict(s) of the sell side orders
+    :return: A list of customerOrderId
+    """
+    part_sell = []
+    for i in sell_orders:  # check for no partially filled orders
+        u = float(i["filledPercentage"])
+
+        if u > 0:
+            update_process_position_buy_price(conn, buy_price=i, process_position=6)
+            part_sell.append(i["customerOrderId"])
+    return part_sell
+
+
+def check_buys_to_place(buys_to_place, buys_placed, part_buy):
+    """checks for buys orders to place
+    :param buys_to_place: buy orders that should be placed according to candle price
+    :param buys_placed: buy orders that have been placed (open orders)
+    :param part_buy: part buy orders
+    :return: a list of customerOrderId of buy orders that should be placed.
+    """
+    return list(set(buys_to_place) - set(buys_placed) - set(part_buy))
+
+
+def check_buys_to_cancel(buys_placed, buys_to_place, part_buy):
+    """checks for buys orders to cancel
+    :param buys_placed:buy orders that have been placed (open orders)
+    :param buys_to_place: buy orders that should be placed according to candle price
+    :param part_buy: part buy orders
+    :return:a list of customerOrderId of buy orders that should be cancelled. out candle price range
+    """
+    return list(set(buys_placed) - set(buys_to_place) - set(part_buy))
+
+
+def cancel_placed_buy(conn, cancel):
+    """A func to cancel placed buy orders
+    :param conn: the Connection object
+    :param cancel: a list of customerOrderId of buy orders that should be cancelled. out candle price range
+    :return:
+    """
+    for item in cancel:
+        delete_order(customer_order_id=item)
+
+        res = order_status(item)
+        if res["orderStatusType"] == "Cancelled":
+            update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=0)
+        elif res["orderStatusType"] == "Placed":  # do nothing
+            logging.error(f'{res["customerOrderId"]} should have been cancelled in cancel_placed_buy func')
+            pass
+        else:
+            logging.error(f'NB cancel placed buy: {res["orderStatusType"]}, {res["customerOrderId"]}')
+            print(f'NB cancel placed buy: {res["orderStatusType"]}, {res["customerOrderId"]}')
+
+
+def place_buy(conn, buy):
+    """ A func to place buy orders on VALR
+    :param conn: the Connection object
+    :param buy: a list of customerOrderId of buy orders that should be placed on VALR
+    :return:
+    """
+    for item in buy:
+        info = get_info_customer_order_id(conn, customer_order_id=item)  # gets info from sql table
+        if info[0][9] == 0:
+            trade = post_limit_order(side="BUY", quantity=info[0][4], price=info[0][0], customer_order_id=info[0][3])
+
+            res = order_status(item[0][3])
+            if res["orderStatusType"] == "Placed":
+                update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=1)
+            elif res["orderStatusType"] == "Cancelled":  # do nothing
+                logging.error(f'{res["customerOrderId"]} should have been Placed in place_buy func')
+                pass
+            else:
+                logging.error(f'NB placed buy: {res["orderStatusType"]}, {res["customerOrderId"]}')
+                print(f'NB placed buy: {res["orderStatusType"]}, {res["customerOrderId"]}')
+
+        else:
+            logging.error(f"process position is incorrect, should be 0 is {info[0][9]}")
+
+
+def place_sell(conn, bought: list, sell_price: int):
+    """ A func to place sell orders on VALR
+    :param conn: the Connection object
+    :param bought: a list of customerOrderId of sell orders that should be placed on VALR
+    :param sell_price:
+    :return:
+    """
+    for item in bought:
+        info = get_info_customer_order_id(conn, customer_order_id=item)  # gets info from sql table
+        if info[0][9] == 3:
+            trade = post_limit_order(side="SELL", quantity=info[0][4], price=sell_price, customer_order_id=item)
+
+            res = order_status(item)
+            if res["orderStatusType"] == "Placed":
+                update_time_placed(conn, time=datetime.utcnow(), customer_order_id=item)
+                update_sell_price(conn, customer_order_id=item, sell_price=sell_price)
+                update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=1)
+
+            elif res["orderStatusType"] == "Cancelled":  # do nothing
+                logging.error(f'{res["customerOrderId"]} should have been Placed in place_sell func')
+                pass
+            else:
+                logging.error(f'NB placed sell: {res["orderStatusType"]}, {res["customerOrderId"]}')
+                print(f'NB placed sell: {res["orderStatusType"]}, {res["customerOrderId"]}')
+
+        else:
+            logging.error(f"process position is incorrect, should be 3 is {info[0][9]}")
+
+
+def initial_sell_price(tic_high: int) -> int:
+    """ The calculation of the initial sell price placement of a bought trade
+    Note: is for buy price to be on even number and sell to be odd,
+            so that there is never a buy and sell trade on the same price.
+    :param tic_high: The high of the minute candle
+    :return: The initial sell price placement of a bought trade
+    """
+    tic_high += 100
+    if tic_high % 2 == 0:
+        return tic_high + 1
+    elif tic_high % 2 == 1:
+        return tic_high
+    else:
+        logging.error(f"initial_sell_price calculation error")
+        return tic_high
+
+
+def profit_placement(conn, sold: list):
+    for sell in sold:
+        info = get_info_customer_order_id(conn, sell)
+        new_quantity = round(info[0][1] / info[0][4], 8)
+        update_quantity(conn, customer_order_id=sell, quantity=new_quantity)
+
+
+def reset_process_position():
     pass
 
 
-def type_of_trade(orders, side: str):
-    y = [i for i in orders if i["side"] == side]
-    trades = []
-    for order in orders:
-        if order["side"] == side:
-            trades.append(order)
-    return trades
+def __datetime(date_str):
+    """Convert a string date into a datetime object
+    :param date_str: Input date in a string data type
+    :return: a datetime object
+    """
+    return datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S.%f")
+
+
+def delta_time(start_date, end_date):
+    """Subtract the end time from the start time.
+    :param start_date: start time
+    :param end_date: end time
+    :return: difference in time
+    """
+    return __datetime(end_date) - __datetime(start_date)

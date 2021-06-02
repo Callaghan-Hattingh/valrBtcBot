@@ -10,7 +10,7 @@ class TradeData:
 
     def period60sec(self):
         """Add 60 sec data for VALR to sqlite3 DB and create variables
-        :return: True (working) or False(error)
+        :return: A Boolean True (working) or False
         """
         if self.data['data']['bucketPeriodInSeconds'] == 60:
             self.data = self.data['data']
