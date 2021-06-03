@@ -13,10 +13,10 @@ def bot_market(data: dict):
     :param data: the candles from the VALR websockets.
     :return:
     """
-    utc_now = datetime.utcnow()  # start time
-    logging.info(f"{utc_now}, 1")  # log start time
     trade_data = TradeData(data)
     if trade_data.period60sec():
+        utc_now = datetime.utcnow()  # start time
+        logging.info(f"{utc_now}, 1")  # log start time
         conn = create_connection("TradeDataBTCZAR.db")
 
         all_orders = all_open_orders()
@@ -44,9 +44,11 @@ def bot_market(data: dict):
 
         sell_price = initial_sell_price(trade_data.high_tic)
         place_sell(conn, bought, sell_price)
+        # todo Add func to control total amount of orders
 
         print('\n')
-    logging.info(f"{datetime.utcnow() - utc_now}, 6")  # end time
+        logging.info(f"{datetime.utcnow() - utc_now}, 6")  # end time
+        logging.info("")
 
 
 def type_of_trade(orders, side: str):
@@ -192,7 +194,7 @@ def place_buy(conn, buy):
         if info[0][9] == 0:
             trade = post_limit_order(side="BUY", quantity=info[0][4], price=info[0][0], customer_order_id=info[0][3])
 
-            res = order_status(item[0][3])
+            res = order_status(item)
             if res["orderStatusType"] == "Placed":
                 update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=1)
             elif res["orderStatusType"] == "Cancelled":  # do nothing
@@ -235,14 +237,14 @@ def place_sell(conn, bought: list, sell_price: int):
             logging.error(f"process position is incorrect, should be 3 is {info[0][9]}")
 
 
-def initial_sell_price(tic_high: int) -> int:
+def initial_sell_price(tic_high: str) -> int:
     """ The calculation of the initial sell price placement of a bought trade
     Note: is for buy price to be on even number and sell to be odd,
             so that there is never a buy and sell trade on the same price.
     :param tic_high: The high of the minute candle
     :return: The initial sell price placement of a bought trade
     """
-    tic_high += 100
+    tic_high = int(tic_high) + 100
     if tic_high % 2 == 0:
         return tic_high + 1
     elif tic_high % 2 == 1:
