@@ -44,6 +44,8 @@ def bot_market(data: dict):
 
         sell_price = initial_sell_price(trade_data.high_tic)
         place_sell(conn, bought, sell_price)
+        profit_placement(conn, sold=sold)
+        reset_process_position(conn, sold)
         # todo Add func to control total amount of orders
 
         print('\n')
@@ -255,14 +257,20 @@ def initial_sell_price(tic_high: str) -> int:
 
 
 def profit_placement(conn, sold: list):
+    """ A function that takes the profit of a trade to increase the quantity of the next trade.
+    :param conn: The Connection object
+    :param sold: A list of customerOrderId of sold orders that toke place on VALR.
+    :return:
+    """
     for sell in sold:
         info = get_info_customer_order_id(conn, sell)
-        new_quantity = round(info[0][1] / info[0][4], 8)
+        new_quantity = round(info[0][1] / info[0][0], 8)
         update_quantity(conn, customer_order_id=sell, quantity=new_quantity)
 
 
-def reset_process_position():
-    pass
+def reset_process_position(conn, sold: list, process_position: int = 0):
+    for item in sold:
+        update_process_position(conn, item, process_position)
 
 
 def __datetime(date_str):
