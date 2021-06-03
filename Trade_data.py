@@ -1,7 +1,5 @@
-import logging
 
 from sqlite3_functions import create_connection, add_period60sec
-from datetime import datetime
 
 
 class TradeData:
@@ -16,7 +14,6 @@ class TradeData:
             self.data = self.data['data']
             conn = create_connection("TradeDataBTCZAR.db")
             add_period60sec(conn, self.data)
-            logging.info(f"{datetime.utcnow()}, 2")  # The websockets one min bucket.
             self.start_time = self.data['startTime']
             self.close_tic = int(self.data['close']) - 300000  # todo fix
             self.open_tic = self.data['open']
