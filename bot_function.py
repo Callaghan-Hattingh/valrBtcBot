@@ -25,8 +25,10 @@ def bot_market(data: dict):
         buy_orders = type_of_trade(all_orders, side="buy")
         sell_orders = type_of_trade(all_orders, side='sell')
 
-        check_bought(conn, buy_orders)
-        check_sold(conn, sell_orders)
+        bought = check_bought(conn, buy_orders)
+        print("Bought:", bought)
+        sold = check_sold(conn, sell_orders)
+        print("Sold:", sold)
 
         part_buy = check_part_buy(conn, buy_orders)
         part_sell = check_part_sell(conn, sell_orders)
@@ -44,7 +46,7 @@ def bot_market(data: dict):
 
         sell_price = initial_sell_price(trade_data.high_tic)
         place_sell(conn, bought, sell_price)
-        profit_placement(conn, sold=sold)
+        profit_placement(conn, sold)
         reset_process_position(conn, sold)
         # todo Add func to control total amount of orders
         # todo Add trailing prof
@@ -70,17 +72,18 @@ def check_bought(conn, buy_orders):
     :param buy_orders:A list of dict with all the buy open orders
     :return: A list of customerOrderId that contain bought orders
     """
+    bought = []
     buy = get_process_position(conn, process_position=1)  # History - info from trades bot sql
     part_buy = get_process_position(conn, process_position=2)
     buys_placed = open_buy_orders(buy_orders)  # present - info from open orders
 
-    bought = list(set([p[3] for p in buy]) - set(buys_placed)) + list(set([p[3] for p in part_buy]) - set(buys_placed))
-    print("Bought:", bought)
+    y = list(set([p[3] for p in buy]) - set(buys_placed)) + list(set([p[3] for p in part_buy]) - set(buys_placed))
 
-    for i in bought:
+    for i in y:
         res = order_status(i)
         if res["orderStatusType"] == "Filled":
             update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=3)
+            bought.append(i)
         elif res["orderStatusType"] == "Cancelled":
             update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=0)
         elif res["orderStatusType"] == "Placed":  # do nothing
@@ -90,6 +93,7 @@ def check_bought(conn, buy_orders):
             print(res)
             logging.error(f'NB check bought: {res["orderStatusType"]}, {res["customerOrderId"]}')
             print(f'NB check bought: {res["orderStatusType"]}, {res["customerOrderId"]}')
+    return bought
 
 
 def check_sold(conn, sell_orders):
@@ -98,17 +102,19 @@ def check_sold(conn, sell_orders):
     :param sell_orders:A list of dict with all the sell open orders
     :return: A list of customerOrderId that contain sold orders
     """
+    sold = []
     sell = get_process_position(conn, process_position=5)  # History - info from trades bot sql
     part_sell = get_process_position(conn, process_position=6)  # History - info from trades bot sql
     sells_placed = open_sell_orders(sell_orders)  # present- info from open orders
 
-    sold = list(set([p[3] for p in sell]) - set(sells_placed)) + list(set([p[3] for p in part_sell]) - set(sells_placed))
-    print("Sold:", sold)
+    y = list(set([p[3] for p in sell]) - set(sells_placed)) + list(
+        set([p[3] for p in part_sell]) - set(sells_placed))
 
-    for i in sold:
+    for i in y:
         res = order_status(i)
         if res["orderStatusType"] == "Filled":
             update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=6)
+            sold.append(i)
         elif res["orderStatusType"] == "Cancelled":
             update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=0)
             logging.error(f'{res["customerOrderId"]} sell order was cancelled')
@@ -119,6 +125,7 @@ def check_sold(conn, sell_orders):
             print(res)
             logging.error(f'NB check sold: {res["orderStatusType"]}, {res["customerOrderId"]}')
             print(f'NB check sold: {res["orderStatusType"]}')
+    return sold
 
 
 def check_part_buy(conn, buy_orders):
@@ -234,7 +241,7 @@ def place_sell(conn, bought: list, sell_price: int):
             if res["orderStatusType"] == "Placed":
                 update_time_placed(conn, time=datetime.utcnow(), customer_order_id=item)
                 update_sell_price(conn, customer_order_id=item, sell_price=sell_price)
-                update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=1)
+                update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=4)
 
             elif res["orderStatusType"] == "Cancelled":  # do nothing
                 logging.error(f'{res["customerOrderId"]} should have been Placed in place_sell func')

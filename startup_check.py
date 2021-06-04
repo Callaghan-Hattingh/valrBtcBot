@@ -1,6 +1,6 @@
 import logging
 from sqlite3_functions import create_connection, get_process_position, update_process_position
-from Post_orders import delete_order, post_limit_order, order_status, last_trade_exchange
+from Post_orders import post_limit_order, order_status, last_trade_exchange
 from Open_orders import all_open_orders
 from bot_function import type_of_trade
 
@@ -14,7 +14,6 @@ def start_up():
     # compare open orders to process position
     check_sell_orders(conn)
     conn.close()
-    pass
 
 
 def check_startup_bought(conn):
@@ -60,5 +59,3 @@ def check_sell_orders(conn):
     items = list(cur_sell - sell - part_sell)
     for item in items:
         update_process_position(conn, customer_order_id=item, process_position=4)
-
-

@@ -23,8 +23,7 @@ if CHECK_STARTUP:
 
 
 def pretty_hook(data: dict):
-    # bot_market(data)
-    pass
+    bot_market(data)
 
 
 c = WebSocketClient(api_key=API_KEY, api_secret=API_SECRET, currency_pairs=[CURRENCY_PAIR],

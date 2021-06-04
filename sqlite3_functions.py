@@ -126,12 +126,11 @@ def update_process_position(conn, customer_order_id: str, process_position: int 
                     1 - Placed buy
                     2 - Part buy
                     3 - Bought
-                    4 - To place sell
-                    5 - Placed sell
-                    6 - Part sell
-                    7 - Sold
-                    8 - Profit placement
-                    9 - Reset
+                    4 - Placed sell
+                    5 - Part sell
+                    6 - Sold
+                    7 - Profit placement
+                    8 - Reset
     :return:
     """
     cur = conn.cursor()
