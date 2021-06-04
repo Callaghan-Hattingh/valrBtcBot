@@ -58,3 +58,12 @@ def order_status(customer_order_id: str, pair: str = "BTCZAR"):
         "customer_order_id": customer_order_id
     }
     return c.get_order_status(**limit_order)
+
+
+def last_trade_exchange(limit: int = 1, pair: str = "BTCZAR"):
+    limit_order = {
+        "currency_pair": pair,
+        "limit": limit
+    }
+    c = Client(api_key=API_KEY, api_secret=API_SECRET)
+    return c.get_market_data_trade_history(**limit_order)

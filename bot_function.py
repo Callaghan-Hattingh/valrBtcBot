@@ -25,10 +25,8 @@ def bot_market(data: dict):
         buy_orders = type_of_trade(all_orders, side="buy")
         sell_orders = type_of_trade(all_orders, side='sell')
 
-        bought = check_bought(conn, buy_orders=buy_orders)
-        print("bought:", bought)
-        sold = check_sold(conn, sell_orders=sell_orders)
-        print("sold:", sold)
+        check_bought(conn, buy_orders)
+        check_sold(conn, sell_orders)
 
         part_buy = check_part_buy(conn, buy_orders)
         part_sell = check_part_sell(conn, sell_orders)
@@ -52,6 +50,7 @@ def bot_market(data: dict):
         # todo Add trailing prof
 
         print('\n')
+        conn.commit()
         logging.info(f"{datetime.utcnow() - utc_now}, 6")  # end time
         logging.info("")
 
@@ -71,23 +70,26 @@ def check_bought(conn, buy_orders):
     :param buy_orders:A list of dict with all the buy open orders
     :return: A list of customerOrderId that contain bought orders
     """
-    bought = []
-    pp = get_process_position(conn, process_position=1)  # History - info from trades bot sql
+    buy = get_process_position(conn, process_position=1)  # History - info from trades bot sql
+    part_buy = get_process_position(conn, process_position=2)
     buys_placed = open_buy_orders(buy_orders)  # present - info from open orders
-    y = list(set([p[3] for p in pp]) - set(buys_placed))
 
-    for i in y:  # todo fix
+    bought = list(set([p[3] for p in buy]) - set(buys_placed)) + list(set([p[3] for p in part_buy]) - set(buys_placed))
+    print("Bought:", bought)
+
+    for i in bought:
         res = order_status(i)
-        if res["orderStatusType"] == "Cancelled":
+        if res["orderStatusType"] == "Filled":
+            update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=3)
+        elif res["orderStatusType"] == "Cancelled":
             update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=0)
         elif res["orderStatusType"] == "Placed":  # do nothing
             logging.error(f'{res["customerOrderId"]} should have been in open_buy_orders func')
             pass
         else:
+            print(res)
             logging.error(f'NB check bought: {res["orderStatusType"]}, {res["customerOrderId"]}')
             print(f'NB check bought: {res["orderStatusType"]}, {res["customerOrderId"]}')
-            bought.append(i)
-    return bought
 
 
 def check_sold(conn, sell_orders):
@@ -96,24 +98,27 @@ def check_sold(conn, sell_orders):
     :param sell_orders:A list of dict with all the sell open orders
     :return: A list of customerOrderId that contain sold orders
     """
-    sold = []
-    pp = get_process_position(conn, process_position=5)  # History - info from trades bot sql
+    sell = get_process_position(conn, process_position=5)  # History - info from trades bot sql
+    part_sell = get_process_position(conn, process_position=6)  # History - info from trades bot sql
     sells_placed = open_sell_orders(sell_orders)  # present- info from open orders
-    y = list(set([p[3] for p in pp]) - set(sells_placed))
 
-    for i in y:  # todo fix
+    sold = list(set([p[3] for p in sell]) - set(sells_placed)) + list(set([p[3] for p in part_sell]) - set(sells_placed))
+    print("Sold:", sold)
+
+    for i in sold:
         res = order_status(i)
-        if res["orderStatusType"] == "Cancelled":
+        if res["orderStatusType"] == "Filled":
+            update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=6)
+        elif res["orderStatusType"] == "Cancelled":
             update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=0)
             logging.error(f'{res["customerOrderId"]} sell order was cancelled')
         elif res["orderStatusType"] == "Placed":  # do nothing as
             logging.error(f'{res["customerOrderId"]} should have been in open_sell_orders func')
             pass
         else:
+            print(res)
             logging.error(f'NB check sold: {res["orderStatusType"]}, {res["customerOrderId"]}')
             print(f'NB check sold: {res["orderStatusType"]}')
-            sold.append(i)
-    return sold
 
 
 def check_part_buy(conn, buy_orders):
@@ -242,14 +247,14 @@ def place_sell(conn, bought: list, sell_price: int):
             logging.error(f"process position is incorrect, should be 3 is {info[0][9]}")
 
 
-def initial_sell_price(tic_high: str) -> int:
+def initial_sell_price(tic_high: int) -> int:
     """ The calculation of the initial sell price placement of a bought trade
     Note: is for buy price to be on even number and sell to be odd,
             so that there is never a buy and sell trade on the same price.
     :param tic_high: The high of the minute candle
     :return: The initial sell price placement of a bought trade
     """
-    tic_high = int(tic_high) + 100
+    tic_high = tic_high + 100
     if tic_high % 2 == 0:
         return tic_high + 1
     elif tic_high % 2 == 1:
