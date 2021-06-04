@@ -26,7 +26,9 @@ def bot_market(data: dict):
         sell_orders = type_of_trade(all_orders, side='sell')
 
         bought = check_bought(conn, buy_orders=buy_orders)
+        print("bought:", bought)
         sold = check_sold(conn, sell_orders=sell_orders)
+        print("sold:", sold)
 
         part_buy = check_part_buy(conn, buy_orders)
         part_sell = check_part_sell(conn, sell_orders)
@@ -35,9 +37,9 @@ def bot_market(data: dict):
         buys_to_place = get_all_buys_to_place(conn, trade_data.close_tic, trade_data.low_tic * 0.9)
 
         buy = check_buys_to_place(buys_to_place, buys_placed, part_buy)
-        print(buy)
+        print("buy:", buy)
         cancel = check_buys_to_cancel(buys_placed, buys_to_place, part_buy)
-        print(cancel)
+        print("cancel:", cancel)
 
         cancel_placed_buy(conn, cancel)
         place_buy(conn, buy)
@@ -47,6 +49,7 @@ def bot_market(data: dict):
         profit_placement(conn, sold=sold)
         reset_process_position(conn, sold)
         # todo Add func to control total amount of orders
+        # todo Add trailing prof
 
         print('\n')
         logging.info(f"{datetime.utcnow() - utc_now}, 6")  # end time

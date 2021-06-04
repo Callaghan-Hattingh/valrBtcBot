@@ -15,12 +15,12 @@ class TradeData:
             conn = create_connection("TradeDataBTCZAR.db")
             add_period60sec(conn, self.data)
             self.start_time = self.data['startTime']
-            self.close_tic = int(self.data['close']) - 300000  # todo fix
-            self.open_tic = self.data['open']
-            self.high_tic = self.data['high']
-            self.low_tic = int(self.data['low']) - 300000  # todo fix
-            self.quoteVolume_tic = ['quoteVolume']
-            self.volume_tic = self.data['volume']
+            self.close_tic = int(self.data['close'])
+            # self.open_tic = int(self.data['open'])
+            self.high_tic = int(self.data['high'])
+            self.low_tic = int(self.data['low'])
+            # self.quoteVolume_tic = ['quoteVolume']
+            # self.volume_tic = self.data['volume']
             return True
         else:
             return False

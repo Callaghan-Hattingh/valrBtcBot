@@ -58,4 +58,3 @@ def order_status(customer_order_id: str, pair: str = "BTCZAR"):
         "customer_order_id": customer_order_id
     }
     return c.get_order_status(**limit_order)
-
