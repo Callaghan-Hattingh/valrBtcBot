@@ -203,3 +203,12 @@ def update_quantity(conn, customer_order_id: str, quantity: int):
     cur.execute(f"""UPDATE trades_bot SET quantity = {quantity} 
                             WHERE customerOrderId = '{customer_order_id}';""")
     conn.commit()
+
+
+def trade_amount(conn, customer_order_id: str):
+    cur = conn.cursor()
+    cur.execute(f"SELECT amountTrades FROM trades_bot WHERE customerOrderId = '{customer_order_id}';")
+    i = cur.fetchall()
+    cur.execute(f"""UPDATE trades_bot SET amountTrades = {i+1} 
+                            WHERE customerOrderId = '{customer_order_id}';""")
+    conn.commit()

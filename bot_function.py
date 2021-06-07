@@ -221,7 +221,11 @@ def place_buy(conn, buy):
     for item in buy:
         info = get_info_customer_order_id(conn, customer_order_id=item)  # gets info from sql table
         if info[0][9] == 0:
-            post_limit_order(side="BUY", quantity=info[0][4], price=info[0][0], customer_order_id=info[0][3])
+            trade = post_limit_order(side="BUY", quantity=info[0][4], price=info[0][0], customer_order_id=info[0][3])
+            if not trade["id"]:
+                print(trade)
+                logging.error(trade)
+
             res = order_status(item)
             if res["orderStatusType"] == "Placed":
                 update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=1)
@@ -248,7 +252,10 @@ def place_sell(conn, bought: list, sell_price: int):
     for item in bought:
         info = get_info_customer_order_id(conn, customer_order_id=item)  # gets info from sql table
         if info[0][9] == 3:
-            post_limit_order(side="SELL", quantity=info[0][4], price=sell_price, customer_order_id=item)
+            trade = post_limit_order(side="SELL", quantity=info[0][4], price=sell_price, customer_order_id=item)
+            if not trade["id"]:
+                print(trade)
+                logging.error(trade)
 
             res = order_status(item)
             if res["orderStatusType"] == "Placed":
@@ -274,7 +281,7 @@ def initial_sell_price(tic_high: int) -> int:
     :param tic_high: The high of the minute candle
     :return: The initial sell price placement of a bought trade
     """
-    tic_high = tic_high + 2500
+    tic_high = tic_high + 500
     if tic_high % 2 == 0:
         return tic_high + 1
     elif tic_high % 2 == 1:
@@ -299,6 +306,7 @@ def profit_placement(conn, sold: list):
 def reset_process_position(conn, sold: list, process_position: int = 0):
     for item in sold:
         update_process_position(conn, item, process_position)
+        trade_amount(conn, item)
 
 
 def __datetime(date_str):
