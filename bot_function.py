@@ -63,7 +63,17 @@ def type_of_trade(orders, side: str):
     :param side: the side of open orders to be returned
     :return: a list of open orders of the chosen side
     """
-    return [i for i in orders if i["side"] == side]
+    trades = []
+    y = [i for i in orders if i["side"] == side]
+    for i in y:
+        try:
+            if i["customerOrderId"]:
+                trades.append(i)
+        except KeyError:
+            pass
+        else:
+            pass
+    return trades
 
 
 def check_bought(conn, buy_orders):
@@ -282,7 +292,7 @@ def profit_placement(conn, sold: list):
     """
     for sell in sold:
         info = get_info_customer_order_id(conn, sell)
-        new_quantity = round(info[0][4]*info[0][1] / info[0][0], 8)
+        new_quantity = round(info[0][4] * info[0][1] / info[0][0], 8)
         update_quantity(conn, customer_order_id=sell, quantity=new_quantity)
 
 
