@@ -63,7 +63,7 @@ def add_btc_orders(conn, orders):
         try:
             add_all_open_orders(conn, order)
         except KeyError:
-            logging.info(f"{datetime.utcnow()}, OpenOrders - KeyError - Trade without customerOrderId")
+            # logging.info(f"{datetime.utcnow()}, OpenOrders - KeyError - Trade without customerOrderId")
             pass  # Want to skip open orders without customerOrderId
             # The get orders API call
         except Exception as e:
