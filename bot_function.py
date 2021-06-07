@@ -149,7 +149,7 @@ def check_part_buy(conn, buy_orders):
         u = float(i["filledPercentage"])
 
         if u > 0:
-            update_process_position_buy_price(conn, buy_price=i, process_position=2)
+            update_process_position(conn, i["customerOrderId"], 2)
             part_buy.append(i["customerOrderId"])
     return part_buy
 
@@ -165,7 +165,7 @@ def check_part_sell(conn, sell_orders):
         u = float(i["filledPercentage"])
 
         if u > 0:
-            update_process_position_buy_price(conn, buy_price=i, process_position=6)
+            update_process_position(conn, i["customerOrderId"], 5)
             part_sell.append(i["customerOrderId"])
     return part_sell
 
