@@ -34,9 +34,9 @@ def bot_market(data: dict):
         part_sell = check_part_sell(conn, sell_orders)
 
         buys_placed = open_buy_orders(buy_orders)
-        buys_to_place = get_all_buys_to_place(conn, trade_data.close_tic, trade_data.low_tic * 0.9)
+        buys_to_place = get_all_buys_to_place(conn, trade_data.close_tic, trade_data.low_tic * 0.95)
 
-        buy = check_buys_to_place(buys_to_place, buys_placed, part_buy)
+        buy = check_buys_to_place(buys_to_place, buys_placed, part_buy, sell_orders)
         print("buy:", buy)
         cancel = check_buys_to_cancel(buys_placed, buys_to_place, part_buy)
         print("cancel:", cancel)
@@ -103,8 +103,8 @@ def check_sold(conn, sell_orders):
     :return: A list of customerOrderId that contain sold orders
     """
     sold = []
-    sell = get_process_position(conn, process_position=5)  # History - info from trades bot sql
-    part_sell = get_process_position(conn, process_position=6)  # History - info from trades bot sql
+    sell = get_process_position(conn, process_position=4)  # History - info from trades bot sql
+    part_sell = get_process_position(conn, process_position=5)  # History - info from trades bot sql
     sells_placed = open_sell_orders(sell_orders)  # present- info from open orders
 
     y = list(set([p[3] for p in sell]) - set(sells_placed)) + list(
@@ -160,14 +160,16 @@ def check_part_sell(conn, sell_orders):
     return part_sell
 
 
-def check_buys_to_place(buys_to_place, buys_placed, part_buy):
+def check_buys_to_place(buys_to_place, buys_placed, part_buy, sell_orders):
     """checks for buys orders to place
+    :param sell_orders:
     :param buys_to_place: buy orders that should be placed according to candle price
     :param buys_placed: buy orders that have been placed (open orders)
     :param part_buy: part buy orders
     :return: a list of customerOrderId of buy orders that should be placed.
     """
-    return list(set(buys_to_place) - set(buys_placed) - set(part_buy))
+    sells_placed = open_sell_orders(sell_orders)
+    return list(set(buys_to_place) - set(buys_placed) - set(part_buy) - set(sells_placed))
 
 
 def check_buys_to_cancel(buys_placed, buys_to_place, part_buy):
@@ -209,8 +211,7 @@ def place_buy(conn, buy):
     for item in buy:
         info = get_info_customer_order_id(conn, customer_order_id=item)  # gets info from sql table
         if info[0][9] == 0:
-            trade = post_limit_order(side="BUY", quantity=info[0][4], price=info[0][0], customer_order_id=info[0][3])
-
+            post_limit_order(side="BUY", quantity=info[0][4], price=info[0][0], customer_order_id=info[0][3])
             res = order_status(item)
             if res["orderStatusType"] == "Placed":
                 update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=1)
@@ -220,7 +221,9 @@ def place_buy(conn, buy):
             else:
                 logging.error(f'NB placed buy: {res["orderStatusType"]}, {res["customerOrderId"]}')
                 print(f'NB placed buy: {res["orderStatusType"]}, {res["customerOrderId"]}')
-
+        elif info[0][9] == 4:
+            # Trade in already in sell
+            pass
         else:
             logging.error(f"process position is incorrect, should be 0 is {info[0][9]}")
 
@@ -235,7 +238,7 @@ def place_sell(conn, bought: list, sell_price: int):
     for item in bought:
         info = get_info_customer_order_id(conn, customer_order_id=item)  # gets info from sql table
         if info[0][9] == 3:
-            trade = post_limit_order(side="SELL", quantity=info[0][4], price=sell_price, customer_order_id=item)
+            post_limit_order(side="SELL", quantity=info[0][4], price=sell_price, customer_order_id=item)
 
             res = order_status(item)
             if res["orderStatusType"] == "Placed":
@@ -261,7 +264,7 @@ def initial_sell_price(tic_high: int) -> int:
     :param tic_high: The high of the minute candle
     :return: The initial sell price placement of a bought trade
     """
-    tic_high = tic_high + 100
+    tic_high = tic_high + 2500
     if tic_high % 2 == 0:
         return tic_high + 1
     elif tic_high % 2 == 1:
@@ -279,7 +282,7 @@ def profit_placement(conn, sold: list):
     """
     for sell in sold:
         info = get_info_customer_order_id(conn, sell)
-        new_quantity = round(info[0][1] / info[0][0], 8)
+        new_quantity = round(info[0][4]*info[0][1] / info[0][0], 8)
         update_quantity(conn, customer_order_id=sell, quantity=new_quantity)
 
 

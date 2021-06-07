@@ -193,7 +193,7 @@ def update_time_placed(conn, time, customer_order_id: str):
     :return:
     """
     cur = conn.cursor()
-    cur.execute(f"""UPDATE trades_bot SET timePlaced = {time} 
+    cur.execute(f"""UPDATE trades_bot SET timePlaced = '{time}' 
                             WHERE customerOrderId = '{customer_order_id}';""")
     conn.commit()
 

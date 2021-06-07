@@ -30,7 +30,7 @@ def open_sell_orders(orders):
     for order in orders:
         if order["side"] == "sell":
             try:
-                placed_sells.append(int(order["customerOrderId"]))
+                placed_sells.append(order["customerOrderId"])
             except KeyError:
                 pass
     return placed_sells

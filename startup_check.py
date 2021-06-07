@@ -23,7 +23,7 @@ def check_startup_bought(conn):
         res = order_status(item[3])
         if res["orderStatusType"] == "Filled":
             last_trade = last_trade_exchange()
-            post_limit_order(side="SELL", quantity=item[4], price=(int(last_trade[0]["price"]) + 25000),
+            post_limit_order(side="SELL", quantity=item[4], price=(int(last_trade[0]["price"]) + 5000),
                              customer_order_id=item[3])
             logging.error(f"check_startup_bought post_limit_order buy placed {item[3]}")
             print(f"check_startup_bought post_limit_order buy placed {item[3]}")
