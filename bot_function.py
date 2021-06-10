@@ -240,6 +240,9 @@ def place_buy(conn, buy):
         elif info[0][9] == 4:
             # Trade in already in sell
             pass
+        elif info[0][9] == 6:
+            # Trade just sold
+            pass
         else:
             logging.error(f"process position is incorrect, should be 0 is {info[0][9]} {item}")
 

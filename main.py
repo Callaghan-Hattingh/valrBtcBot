@@ -11,7 +11,7 @@ from startup_check import start_up
 
 from sqlite3_functions import *
 
-logging.basicConfig(filename='tmp/logging_btczar_bot.out',
+logging.basicConfig(filename='tmp/logging_btczar_bot.log',
                     filemode='w',
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -40,6 +40,8 @@ if __name__ == "__main__":
             loop.run_until_complete(c.run())
         except asyncio.IncompleteReadError as e:
             logging.error(f"asyncio.IncompleteReadError: {e}")
+            continue
+        else:
             continue
             
 
