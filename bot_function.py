@@ -42,10 +42,9 @@ def bot_market(data: dict):
         print("cancel:", cancel)
 
         cancel_placed_buy(conn, cancel)
+        place_sell(conn, bought, trade_data.high_tic)
         place_buy(conn, buy)
 
-        sell_price = initial_sell_price(trade_data.high_tic)
-        place_sell(conn, bought, sell_price)
         profit_placement(conn, sold)
         reset_process_position(conn, sold)
         # todo Add func to control total amount of orders
@@ -232,6 +231,9 @@ def place_buy(conn, buy):
             elif res["orderStatusType"] == "Cancelled":  # do nothing
                 logging.error(f'{res["customerOrderId"]} should have been Placed in place_buy func')
                 pass
+            elif res["orderStatusType"] == "Failed":  # do nothing
+                logging.warning(f'{res["customerOrderId"]} order failed to place')
+                pass
             else:
                 logging.error(f'NB placed buy: {res["orderStatusType"]}, {res["customerOrderId"]}')
                 print(f'NB placed buy: {res["orderStatusType"]}, {res["customerOrderId"]}')
@@ -239,19 +241,20 @@ def place_buy(conn, buy):
             # Trade in already in sell
             pass
         else:
-            logging.error(f"process position is incorrect, should be 0 is {info[0][9]}")
+            logging.error(f"process position is incorrect, should be 0 is {info[0][9]} {item}")
 
 
-def place_sell(conn, bought: list, sell_price: int):
+def place_sell(conn, bought: list, high_tic):
     """ A func to place sell orders on VALR
+    :param high_tic:
     :param conn: the Connection object
     :param bought: a list of customerOrderId of sell orders that should be placed on VALR
-    :param sell_price:
     :return:
     """
     for item in bought:
         info = get_info_customer_order_id(conn, customer_order_id=item)  # gets info from sql table
         if info[0][9] == 3:
+            sell_price = initial_sell_price(high_tic, info[0][0])
             trade = post_limit_order(side="SELL", quantity=info[0][4], price=sell_price, customer_order_id=item)
             if not trade["id"]:
                 print(trade)
@@ -271,17 +274,22 @@ def place_sell(conn, bought: list, sell_price: int):
                 print(f'NB placed sell: {res["orderStatusType"]}, {res["customerOrderId"]}')
 
         else:
-            logging.error(f"process position is incorrect, should be 3 is {info[0][9]}")
+            logging.error(f"process position is incorrect, should be 3 is {info[0][9]} {item}")
 
 
-def initial_sell_price(tic_high: int) -> int:
+def initial_sell_price(tic_high: int, buy_price: int) -> int:
     """ The calculation of the initial sell price placement of a bought trade
     Note: is for buy price to be on even number and sell to be odd,
             so that there is never a buy and sell trade on the same price.
+    :param buy_price:
     :param tic_high: The high of the minute candle
     :return: The initial sell price placement of a bought trade
     """
-    tic_high = tic_high + 500
+    if tic_high > buy_price:
+        tic_high = tic_high + 500
+    else:
+        tic_high = buy_price + 500
+
     if tic_high % 2 == 0:
         return tic_high + 1
     elif tic_high % 2 == 1:
@@ -299,7 +307,10 @@ def profit_placement(conn, sold: list):
     """
     for sell in sold:
         info = get_info_customer_order_id(conn, sell)
-        new_quantity = round(info[0][4] * info[0][1] / info[0][0], 8)
+        if round(info[0][4] * info[0][1] / info[0][0], 8) >= 0.0001:
+            new_quantity = round(info[0][4] * info[0][1] / info[0][0], 8)
+        else:
+            new_quantity = 0.0001
         update_quantity(conn, customer_order_id=sell, quantity=new_quantity)
 
 

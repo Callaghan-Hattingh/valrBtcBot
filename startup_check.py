@@ -32,6 +32,8 @@ def check_startup_bought(conn):
             update_process_position(conn, customer_order_id=item[3])
         elif res["orderStatusType"] == "Placed":
             update_process_position(conn, customer_order_id=item[3], process_position=1)
+        elif res["orderStatusType"] == "Failed":
+            pass
         else:
             print("check_startup_bought error:", res)
             logging.error(f"check_startup_bought {res}")
@@ -46,8 +48,11 @@ def check_startup_sold(conn):
             pass
         elif res["orderStatusType"] == "Placed":
             update_process_position(conn, customer_order_id=item[3], process_position=4)
+        elif res["orderStatusType"] == "Failed":
+            pass
         else:
             print("check_startup_bought error:", res)
+
             logging.error(f"check_startup_bought {res}")
 
 

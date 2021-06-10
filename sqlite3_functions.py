@@ -198,7 +198,7 @@ def update_time_placed(conn, time, customer_order_id: str):
     conn.commit()
 
 
-def update_quantity(conn, customer_order_id: str, quantity: int):
+def update_quantity(conn, customer_order_id: str, quantity: float):
     cur = conn.cursor()
     cur.execute(f"""UPDATE trades_bot SET quantity = {quantity} 
                             WHERE customerOrderId = '{customer_order_id}';""")
@@ -209,6 +209,19 @@ def trade_amount(conn, customer_order_id: str):
     cur = conn.cursor()
     cur.execute(f"SELECT amountTrades FROM trades_bot WHERE customerOrderId = '{customer_order_id}';")
     i = cur.fetchall()
-    cur.execute(f"""UPDATE trades_bot SET amountTrades = {i+1} 
+    cur.execute(f"""UPDATE trades_bot SET amountTrades = {int(i[0][0]) + 1} 
                             WHERE customerOrderId = '{customer_order_id}';""")
     conn.commit()
+
+
+def get_date(conn):
+    dates = []
+    cur = conn.cursor()
+    cur.execute(f"SELECT * FROM trades_bot WHERE processPosition = 4;")
+    items = cur.fetchall()
+    for i in items:
+        if i[2] == '':
+            pass
+        else:
+            dates.append(i)
+    return dates
