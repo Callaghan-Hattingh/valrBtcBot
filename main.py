@@ -37,12 +37,18 @@ if __name__ == "__main__":
 
     while True:
         try:
-            loop.run_until_complete(c.run())
-        except asyncio.IncompleteReadError as e:
-            logging.error(f"asyncio.IncompleteReadError: {e}")
+            try:
+                loop.run_until_complete(c.run())
+            except asyncio.IncompleteReadError as e:
+                logging.error(f"asyncio.IncompleteReadError: {e}")
+                continue
+        except ConnectionResetError as e:
+            logging.error(f"ConnectionResetError: [Errno 104] Connection reset by peer: {e}")
             continue
         else:
             continue
+
+
             
 
 # notes:
