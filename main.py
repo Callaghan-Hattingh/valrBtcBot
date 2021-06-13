@@ -42,14 +42,13 @@ if __name__ == "__main__":
             except asyncio.IncompleteReadError as e:
                 logging.error(f"asyncio.IncompleteReadError: {e}")
                 continue
-        except ConnectionResetError as e:
-            logging.error(f"ConnectionResetError: [Errno 104] Connection reset by peer: {e}")
+        except Exception as e:
+            logging.error(f"Websocket Error Exception: {e}")
+            # logging.error(f"ConnectionResetError: [Errno 104] Connection reset by peer: {e}")
             continue
         else:
             continue
 
-
-            
 
 # notes:
 # 1) In log file if just start and end num given than most likely 300/900/1800/3600 bucket.

@@ -16,7 +16,7 @@ def bot_market(data: dict):
     trade_data = TradeData(data)
     if trade_data.period60sec():
         utc_now = datetime.utcnow()  # start time
-        logging.info(f"{utc_now}, 1")  # log start time
+        # logging.info(f"{utc_now}, 1")  # log start time
         conn = create_connection("TradeDataBTCZAR.db")
 
         all_orders = all_open_orders()
@@ -52,8 +52,8 @@ def bot_market(data: dict):
 
         print('\n')
         conn.commit()
-        logging.info(f"{datetime.utcnow() - utc_now}, 6")  # end time
-        logging.info("")
+        # logging.info(f"{datetime.utcnow() - utc_now}, 6 \n")  # end time
+        # logging.info("")
 
 
 def type_of_trade(orders, side: str):
@@ -311,7 +311,8 @@ def profit_placement(conn, sold: list):
     for sell in sold:
         info = get_info_customer_order_id(conn, sell)
         if round(info[0][4] * info[0][1] / info[0][0], 8) >= 0.0001:
-            new_quantity = round(info[0][4] * info[0][1] / info[0][0], 8)
+            new_quantity = round(info[0][4] * (info[0][1] + info[0][0]*0.0002) / info[0][0], 8)
+            # todo see if quantity is right
         else:
             new_quantity = 0.0001
         update_quantity(conn, customer_order_id=sell, quantity=new_quantity)
