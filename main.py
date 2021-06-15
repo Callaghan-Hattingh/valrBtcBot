@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 from valr_python import WebSocketClient
 from valr_python.enum import TradeEvent
@@ -17,11 +18,6 @@ logging.basicConfig(filename='tmp/logging_btczar_bot.log',
                     level=logging.INFO)
 TRADE_EVENT = TradeEvent.NEW_TRADE_BUCKET
 CURRENCY_PAIR = "BTCZAR"
-CHECK_STARTUP = True
-
-if CHECK_STARTUP:
-    start_up()
-    CHECK_STARTUP = False
 
 
 def pretty_hook(data: dict):
@@ -37,18 +33,19 @@ if __name__ == "__main__":
 
     while True:
         try:
-            try:
-                loop.run_until_complete(c.run())
-            except asyncio.IncompleteReadError as e:
-                logging.error(f"asyncio.IncompleteReadError: {e}")
-                continue
+            loop.run_until_complete(c.run())
+        except asyncio.IncompleteReadError as e:
+            logging.error(f"asyncio.IncompleteReadError: {e}")
+            continue
         except Exception as e:
             logging.error(f"Websocket Error Exception: {e}")
-            # logging.error(f"ConnectionResetError: [Errno 104] Connection reset by peer: {e}")
+            print(f"Websocket Error Exception: {e}\n")
             continue
         else:
-            continue
+            # continue
+            pass
 
+"""   """
 
 # notes:
 # 1) In log file if just start and end num given than most likely 300/900/1800/3600 bucket.
