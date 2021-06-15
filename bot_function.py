@@ -40,19 +40,24 @@ def bot_market(data: dict):
         print("buy:", buy)
         cancel = check_buys_to_cancel(buys_placed, buys_to_place, part_buy)
         print("cancel:", cancel)
+        print(1)
 
         cancel_placed_buy(conn, cancel)
+        print(2)
         place_sell(conn, bought, trade_data.high_tic)
+        print(3)
         place_buy(conn, buy)
+        print(4)
 
         profit_placement(conn, sold)
+        print(5)
         reset_process_position(conn, sold)
         # todo Add func to control total amount of orders
         # todo Add trailing prof
-
-        print('\n')
         conn.commit()
+
         # logging.info(f"{datetime.utcnow() - utc_now}, 6 \n")  # end time
+        print(f"{datetime.utcnow() - utc_now}, 6 \n")
         # logging.info("")
 
 
@@ -98,6 +103,10 @@ def check_bought(conn, buy_orders):
         elif res["orderStatusType"] == "Placed":  # do nothing
             logging.error(f'{res["customerOrderId"]} should have been in open_buy_orders func')
             pass
+        elif res["orderStatusType"] == "Failed" \
+                and res["failedReason"] == "Post only cancelled as it would have matched":
+            update_process_position(conn, customer_order_id=res["customerOrderId"], process_position=3)
+            bought.append(i)
         else:
             print(res)
             logging.error(f'NB check bought: {res["orderStatusType"]}, {res["customerOrderId"]}')
@@ -221,9 +230,15 @@ def place_buy(conn, buy):
         info = get_info_customer_order_id(conn, customer_order_id=item)  # gets info from sql table
         if info[0][9] == 0:
             trade = post_limit_order(side="BUY", quantity=info[0][4], price=info[0][0], customer_order_id=info[0][3])
+
             if not trade["id"]:
                 print(trade)
                 logging.error(trade)
+            """
+            elif trade["failedReason"] == "Post only cancelled as it would have matched":
+                update_process_position(conn, customer_order_id=item, process_position=3)
+                print(trade)
+            """
 
             res = order_status(item)
             if res["orderStatusType"] == "Placed":
@@ -241,8 +256,12 @@ def place_buy(conn, buy):
             # Trade in already in sell
             pass
         elif info[0][9] == 6:
+            update_process_position(conn, customer_order_id=item, process_position=5)
             # Trade just sold
             pass
+        elif info[0][9] == 3:
+            update_process_position(conn, customer_order_id=item, process_position=2)
+            # to correct the system after a error change a bought into a part buy
         else:
             logging.error(f"process position is incorrect, should be 0 is {info[0][9]} {item}")
 
@@ -259,6 +278,7 @@ def place_sell(conn, bought: list, high_tic):
         if info[0][9] == 3:
             sell_price = initial_sell_price(high_tic, info[0][0])
             trade = post_limit_order(side="SELL", quantity=info[0][4], price=sell_price, customer_order_id=item)
+
             if not trade["id"]:
                 print(trade)
                 logging.error(trade)
@@ -289,9 +309,9 @@ def initial_sell_price(tic_high: int, buy_price: int) -> int:
     :return: The initial sell price placement of a bought trade
     """
     if tic_high > buy_price:
-        tic_high = tic_high + 500
+        tic_high = tic_high + 998
     else:
-        tic_high = buy_price + 500
+        tic_high = buy_price + 998
 
     if tic_high % 2 == 0:
         return tic_high + 1
